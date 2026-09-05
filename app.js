@@ -27,6 +27,7 @@ let currentRep = 1;
 let remainingMs = readSettings().work * 1000;
 let phaseDurationMs = remainingMs;
 let lastTick = 0;
+let lastCountdownSecond = null;
 let rafId = 0;
 
 function readSettings() {
@@ -106,6 +107,7 @@ function resetTimer() {
   currentRep = 1;
   phaseDurationMs = settings.work * 1000;
   remainingMs = phaseDurationMs;
+  lastCountdownSecond = null;
   cancelAnimationFrame(rafId);
   releaseWakeLock();
   render();
@@ -135,9 +137,20 @@ function tick(now) {
   lastTick = now;
   remainingMs -= elapsed;
 
+  playCountdownTick();
   if (remainingMs <= 0) advancePhase();
   render();
   rafId = requestAnimationFrame(tick);
+}
+
+function playCountdownTick() {
+  if (remainingMs <= 0 || remainingMs > 3000) return;
+
+  const countdownSecond = Math.ceil(remainingMs / 1000);
+  if (countdownSecond < 1 || countdownSecond > 3 || countdownSecond === lastCountdownSecond) return;
+
+  lastCountdownSecond = countdownSecond;
+  playTone("tick");
 }
 
 function advancePhase() {
@@ -147,6 +160,7 @@ function advancePhase() {
     phase = "rest";
     phaseDurationMs = settings.rest * 1000;
     remainingMs = phaseDurationMs;
+    lastCountdownSecond = null;
     playTone("stop");
     return;
   }
@@ -156,6 +170,7 @@ function advancePhase() {
     phase = "work";
     phaseDurationMs = settings.work * 1000;
     remainingMs = phaseDurationMs;
+    lastCountdownSecond = null;
     playTone("start");
     return;
   }
@@ -164,6 +179,7 @@ function advancePhase() {
   if (currentRep <= settings.reps) {
     phaseDurationMs = settings.work * 1000;
     remainingMs = phaseDurationMs;
+    lastCountdownSecond = null;
     playTone("start");
   } else {
     running = false;
@@ -191,6 +207,7 @@ function playTone(type) {
       [392, 0, 0.18],
       [330, 0.2, 0.26],
     ],
+    tick: [[1568, 0, 0.08]],
     finish: [
       [880, 0, 0.18],
       [988, 0.22, 0.18],
@@ -201,6 +218,7 @@ function playTone(type) {
   const vibrationPatterns = {
     start: [120, 40, 120],
     stop: [260],
+    tick: [40],
     finish: [160, 60, 160, 60, 260],
   };
 
