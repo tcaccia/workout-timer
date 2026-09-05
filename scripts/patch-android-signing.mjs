@@ -18,16 +18,19 @@ if (!source.includes("signingConfigs {")) {
   );
 }
 
-source = source.replace(
-  /release\s*\{([\s\S]*?)\n\s*\}/,
-  (match) => {
-    if (match.includes("signingConfig signingConfigs.release")) return match;
-    return match.replace(
-      /release\s*\{/,
-      `release {
-            signingConfig signingConfigs.release`,
-    );
-  },
-);
+const buildTypesRelease = /(buildTypes\s*\{[\s\S]*?release\s*\{)([\s\S]*?)(\n\s*\})/;
+const match = source.match(buildTypesRelease);
+
+if (!match) {
+  throw new Error("Could not find the Android release build type.");
+}
+
+if (!match[2].includes("signingConfig signingConfigs.release")) {
+  source = source.replace(
+    buildTypesRelease,
+    `$1
+            signingConfig signingConfigs.release$2$3`,
+  );
+}
 
 await writeFile(buildFile, source);
