@@ -144,8 +144,36 @@ function drawLine(buffer, width, x1, y1, x2, y2, strokeWidth, rgba) {
   }
 }
 
+function fillCircle(buffer, width, cx, cy, radius, rgba) {
+  const minX = Math.floor(cx - radius - 1);
+  const maxX = Math.ceil(cx + radius + 1);
+  const minY = Math.floor(cy - radius - 1);
+  const maxY = Math.ceil(cy + radius + 1);
+
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      const coverage = Math.max(0, 1 - (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) - radius));
+      blendPixel(buffer, width, x, y, rgba, Math.min(1, coverage));
+    }
+  }
+}
+
+function fillRoundedRect(buffer, width, x, y, rectWidth, rectHeight, radius, rgba) {
+  const maxX = Math.ceil(x + rectWidth);
+  const maxY = Math.ceil(y + rectHeight);
+
+  for (let py = Math.floor(y); py <= maxY; py += 1) {
+    for (let px = Math.floor(x); px <= maxX; px += 1) {
+      const nearestX = Math.max(x + radius, Math.min(px + 0.5, x + rectWidth - radius));
+      const nearestY = Math.max(y + radius, Math.min(py + 0.5, y + rectHeight - radius));
+      const coverage = Math.max(0, 1 - (Math.hypot(px + 0.5 - nearestX, py + 0.5 - nearestY) - radius));
+      blendPixel(buffer, width, px, py, rgba, Math.min(1, coverage));
+    }
+  }
+}
+
 function renderIcon(size, transparentBackground = false) {
-  const scale = size / 512;
+  const scale = size / 32;
   const buffer = Buffer.alloc(size * size * 4);
 
   if (!transparentBackground) {
@@ -158,11 +186,17 @@ function renderIcon(size, transparentBackground = false) {
     }
   }
 
-  drawCircleStroke(buffer, size, 256 * scale, 278 * scale, 154 * scale, 42 * scale, color("#33322F"));
-  drawCircleStroke(buffer, size, 256 * scale, 278 * scale, 154 * scale, 42 * scale, color("#48D597"), 4.7, 0.5);
-  drawLine(buffer, size, 186 * scale, 76 * scale, 326 * scale, 76 * scale, 38 * scale, color("#F5F2EA"));
-  drawLine(buffer, size, 256 * scale, 278 * scale, 256 * scale, 174 * scale, 32 * scale, color("#F5F2EA"));
-  drawLine(buffer, size, 256 * scale, 278 * scale, 340 * scale, 278 * scale, 32 * scale, color("#55A7FF"));
+  const light = color("#ede7f6");
+  const purple = color("#b39ddb");
+
+  fillCircle(buffer, size, 18 * scale, 18 * scale, 7 * scale, light);
+  drawCircleStroke(buffer, size, 18 * scale, 18 * scale, 11 * scale, 2.2 * scale, purple, 5.05, 4.15);
+  fillRoundedRect(buffer, size, 14 * scale, 2 * scale, 8 * scale, 6 * scale, 2 * scale, purple);
+  drawLine(buffer, size, 18 * scale, 18 * scale, 22.8 * scale, 14.2 * scale, 2 * scale, purple);
+  fillCircle(buffer, size, 18 * scale, 18 * scale, 3 * scale, purple);
+  drawLine(buffer, size, 5 * scale, 16 * scale, 11 * scale, 16 * scale, 2 * scale, purple);
+  drawLine(buffer, size, 3 * scale, 20 * scale, 11 * scale, 20 * scale, 2 * scale, purple);
+  drawLine(buffer, size, 5 * scale, 24 * scale, 11 * scale, 24 * scale, 2 * scale, purple);
 
   return encodePng(size, size, buffer);
 }
