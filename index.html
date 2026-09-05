@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#141414" />
+    <title>Workout Timer</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css?v=3" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="timer-panel" aria-label="Workout timer">
+        <div class="topbar">
+          <div>
+            <p class="eyebrow">Workout timer</p>
+            <h1>Workout Timer</h1>
+          </div>
+          <button class="icon-button" id="soundToggle" type="button" aria-pressed="true" title="Sound on">
+            <span aria-hidden="true" id="soundIcon">♪</span>
+          </button>
+        </div>
+
+        <div class="phase-strip" aria-live="polite">
+          <span class="phase-pill" id="phaseLabel">Ready</span>
+          <span id="roundLabel">Round 1 of 10</span>
+        </div>
+
+        <div class="dial" aria-label="Time remaining">
+          <svg class="progress-ring" viewBox="0 0 240 240" role="img" aria-labelledby="timerTitle">
+            <title id="timerTitle">Timer progress</title>
+            <circle class="ring-track" cx="120" cy="120" r="104"></circle>
+            <circle class="ring-progress" id="ringProgress" cx="120" cy="120" r="104"></circle>
+          </svg>
+          <div class="dial-content">
+            <span class="time" id="timeLabel">00:40</span>
+            <span class="next" id="nextLabel">10 rounds, 20s rest</span>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button class="primary-button" id="startPause" type="button">Start</button>
+          <button class="secondary-button" id="reset" type="button">Reset</button>
+        </div>
+      </section>
+
+      <section class="settings-panel" aria-label="Sequence settings">
+        <h2>Sequence</h2>
+        <div class="field-grid">
+          <label class="field">
+            <span>Rounds</span>
+            <input id="repsInput" type="number" inputmode="numeric" min="1" max="99" value="10" />
+          </label>
+          <label class="field">
+            <span>Work</span>
+            <div class="input-unit">
+              <input id="workInput" type="number" inputmode="numeric" min="1" max="3600" value="40" />
+              <span>s</span>
+            </div>
+          </label>
+          <label class="field">
+            <span>Rest</span>
+            <div class="input-unit">
+              <input id="restInput" type="number" inputmode="numeric" min="0" max="3600" value="20" />
+              <span>s</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="timeline" id="timeline" aria-label="Sequence preview"></div>
+      </section>
+    </main>
+
+    <script src="app.js?v=3"></script>
+  </body>
+</html>
