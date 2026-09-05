@@ -56,17 +56,33 @@ async function writeResource(relativePath, content) {
   await writeFile(filePath, content);
 }
 
-let colors = await readFile(colorsFile, "utf8");
+async function readTextIfExists(filePath, fallback) {
+  try {
+    return await readFile(filePath, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") return fallback;
+    throw error;
+  }
+}
+
+let colors = await readTextIfExists(
+  colorsFile,
+  `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+</resources>
+`,
+);
 if (!colors.includes('name="ic_launcher_background"')) {
   colors = colors.replace(
     /<\/resources>/,
     `    <color name="ic_launcher_background">#141414</color>
 </resources>`,
   );
+  await mkdir(dirname(colorsFile), { recursive: true });
   await writeFile(colorsFile, colors);
 }
 
-let manifest = await readFile(manifestFile, "utf8");
+let manifest = await readTextIfExists(manifestFile, "");
 if (!manifest.includes("android.permission.VIBRATE")) {
   manifest = manifest.replace(
     /<manifest([^>]*)>/,
