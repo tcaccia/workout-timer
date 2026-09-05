@@ -5,6 +5,7 @@
   "description": "A simple workout interval timer for mobile use.",
   "scripts": {
     "build:web": "node scripts/prepare-web.mjs",
+    "android:icons": "node scripts/patch-android-icons.mjs",
     "android:add": "cap add android",
     "android:sync": "npm run build:web && cap sync android"
   },

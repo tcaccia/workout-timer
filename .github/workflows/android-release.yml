@@ -40,6 +40,9 @@ jobs:
       - name: Sync Android project
         run: npx cap sync android
 
+      - name: Configure Android launcher icon
+        run: npm run android:icons
+
       - name: Decode signing key
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

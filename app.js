@@ -173,30 +173,46 @@ function advancePhase() {
   }
 }
 
+function vibrate(pattern) {
+  if ("vibrate" in navigator) navigator.vibrate(pattern);
+}
+
 function playTone(type) {
   if (!soundEnabled) return;
   audioContext ||= new AudioContext();
   const now = audioContext.currentTime;
+  const peakVolume = 0.85;
   const tones = {
     start: [
-      [880, 0, 0.12],
-      [1175, 0.15, 0.12],
+      [880, 0, 0.18],
+      [1175, 0.2, 0.22],
     ],
-    stop: [[330, 0, 0.22]],
+    stop: [
+      [392, 0, 0.18],
+      [330, 0.2, 0.26],
+    ],
     finish: [
-      [880, 0, 0.14],
-      [988, 0.16, 0.14],
-      [1320, 0.32, 0.24],
+      [880, 0, 0.18],
+      [988, 0.22, 0.18],
+      [1320, 0.44, 0.34],
     ],
   }[type];
+
+  const vibrationPatterns = {
+    start: [120, 40, 120],
+    stop: [260],
+    finish: [160, 60, 160, 60, 260],
+  };
+
+  vibrate(vibrationPatterns[type]);
 
   tones.forEach(([frequency, delay, duration]) => {
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
-    oscillator.type = "sine";
+    oscillator.type = "square";
     oscillator.frequency.value = frequency;
     gain.gain.setValueAtTime(0.0001, now + delay);
-    gain.gain.exponentialRampToValueAtTime(0.22, now + delay + 0.015);
+    gain.gain.exponentialRampToValueAtTime(peakVolume, now + delay + 0.015);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + duration);
     oscillator.connect(gain).connect(audioContext.destination);
     oscillator.start(now + delay);
