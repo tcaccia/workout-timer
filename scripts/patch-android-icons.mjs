@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { deflateSync } from "node:zlib";
 
@@ -26,6 +26,21 @@ async function writeResource(relativePath, content) {
   const filePath = join(resDir, relativePath);
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, content);
+}
+
+async function resourceExists(resourceName) {
+  const valuesDir = join(resDir, "values");
+  try {
+    const files = await readdir(valuesDir);
+    const xmlFiles = files.filter((file) => file.endsWith(".xml"));
+    const contents = await Promise.all(
+      xmlFiles.map((file) => readFile(join(valuesDir, file), "utf8")),
+    );
+    return contents.some((content) => content.includes(`name="${resourceName}"`));
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
 }
 
 function makeCrcTable() {
@@ -152,14 +167,14 @@ function renderIcon(size, transparentBackground = false) {
   return encodePng(size, size, buffer);
 }
 
-let colors = await readTextIfExists(
-  colorsFile,
-  `<?xml version="1.0" encoding="utf-8"?>
+if (!(await resourceExists("ic_launcher_background"))) {
+  let colors = await readTextIfExists(
+    colorsFile,
+    `<?xml version="1.0" encoding="utf-8"?>
 <resources>
 </resources>
 `,
-);
-if (!colors.includes('name="ic_launcher_background"')) {
+  );
   colors = colors.replace(
     /<\/resources>/,
     `    <color name="ic_launcher_background">#141414</color>
