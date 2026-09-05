@@ -9,7 +9,7 @@ const colorsFile = join(resDir, "values", "colors.xml");
 const adaptiveIcon = `<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <foreground android:drawable="@drawable/ic_workout_launcher_foreground" />
 </adaptive-icon>
 `;
 
@@ -178,7 +178,7 @@ if (!manifest.includes("android.permission.VIBRATE")) {
   await writeFile(manifestFile, manifest);
 }
 
-await writeResource(join("drawable", "ic_launcher_foreground.png"), renderIcon(432, true));
+await writeResource(join("drawable", "ic_workout_launcher_foreground.png"), renderIcon(432, true));
 await writeResource(join("mipmap-anydpi-v26", "ic_launcher.xml"), adaptiveIcon);
 await writeResource(join("mipmap-anydpi-v26", "ic_launcher_round.xml"), adaptiveIcon);
 
