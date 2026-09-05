@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#141414" />
     <title>Workout Timer</title>
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="stylesheet" href="styles.css?v=6" />
+    <link rel="stylesheet" href="styles.css?v=7" />
   </head>
   <body>
     <main class="app-shell">
@@ -19,6 +19,11 @@
           <button class="icon-button" id="soundToggle" type="button" aria-pressed="true" title="Sound on">
             <span aria-hidden="true" id="soundIcon">♪</span>
           </button>
+        </div>
+
+        <div class="mode-tabs" role="tablist" aria-label="Timer mode">
+          <button class="mode-tab active" id="simpleMode" type="button" role="tab" aria-selected="true">Simple</button>
+          <button class="mode-tab" id="workoutMode" type="button" role="tab" aria-selected="false">Workout</button>
         </div>
 
         <div class="phase-strip" aria-live="polite">
@@ -44,7 +49,7 @@
         </div>
       </section>
 
-      <section class="settings-panel" aria-label="Sequence settings">
+      <section class="settings-panel" id="simpleSettings" aria-label="Sequence settings">
         <h2>Sequence</h2>
         <div class="field-grid">
           <label class="field">
@@ -69,8 +74,23 @@
 
         <div class="timeline" id="timeline" aria-label="Sequence preview"></div>
       </section>
+
+      <section class="settings-panel hidden" id="workoutSettings" aria-label="Workout plan">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Full plan</p>
+            <h2>Workout Easy</h2>
+          </div>
+          <span class="summary-pill" id="workoutSummary">3 exercises</span>
+        </div>
+        <label class="field">
+          <span>Workout description</span>
+          <input id="workoutDescription" type="text" value="Workout Easy" />
+        </label>
+        <div class="workout-list" id="workoutList"></div>
+      </section>
     </main>
 
-    <script src="app.js?v=6"></script>
+    <script src="app.js?v=7"></script>
   </body>
 </html>

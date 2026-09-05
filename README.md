@@ -1,8 +1,13 @@
 # Workout Timer
 
-A simple workout interval timer for mobile use.
+A workout interval timer for mobile use.
 
-The app lets you configure:
+The app includes two modes:
+
+- Simple mode for a single repeated work/rest sequence
+- Workout mode for a complete multi-exercise training plan
+
+Simple mode lets you configure:
 
 - number of rounds
 - work duration
@@ -10,6 +15,14 @@ The app lets you configure:
 - sound cues for start, stop/rest, and workout completion
 
 The first default sequence is 10 rounds, 40 seconds of work, and 20 seconds of rest.
+
+Workout mode currently includes a sample full plan with:
+
+- workout description
+- three exercises
+- editable sequence descriptions
+- rest timing between exercises
+- mixed interval patterns for exercise sequences
 
 ## Run Locally
 
@@ -22,7 +35,7 @@ python -m http.server 5173
 Then open:
 
 ```text
-http://localhost:5173/index.html?v=6
+http://localhost:5173/index.html?v=7
 ```
 
 ## Android Distribution

@@ -2,7 +2,7 @@
   "name": "workout-timer",
   "version": "1.0.0",
   "private": true,
-  "description": "A simple workout interval timer for mobile use.",
+  "description": "A workout interval timer with simple and full plan modes.",
   "scripts": {
     "build:web": "node scripts/prepare-web.mjs",
     "android:icons": "node scripts/patch-android-icons.mjs",
