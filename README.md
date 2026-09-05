@@ -19,10 +19,13 @@ The first default sequence is 10 rounds, 40 seconds of work, and 20 seconds of r
 Workout mode currently includes a sample full plan with:
 
 - workout description
-- three exercises
+- editable exercise count
+- configurable exercise descriptions
+- single interval or ABCD sequence timing
+- editable work and rest durations per exercise
 - editable sequence descriptions
 - rest timing between exercises
-- mixed interval patterns for exercise sequences
+- saved workout settings on the device
 
 ## Run Locally
 
@@ -35,7 +38,7 @@ python -m http.server 5173
 Then open:
 
 ```text
-http://localhost:5173/index.html?v=8
+http://localhost:5173/index.html?v=9
 ```
 
 ## Android Distribution

@@ -3,8 +3,10 @@ const elements = {
   workoutMode: document.querySelector("#workoutMode"),
   simpleSettings: document.querySelector("#simpleSettings"),
   workoutSettings: document.querySelector("#workoutSettings"),
+  workoutTitle: document.querySelector("#workoutTitle"),
   workoutDescription: document.querySelector("#workoutDescription"),
   workoutSummary: document.querySelector("#workoutSummary"),
+  exerciseCount: document.querySelector("#exerciseCount"),
   workoutList: document.querySelector("#workoutList"),
   reps: document.querySelector("#repsInput"),
   work: document.querySelector("#workInput"),
@@ -23,50 +25,15 @@ const elements = {
 
 const radius = 104;
 const circumference = 2 * Math.PI * radius;
-elements.ring.style.strokeDasharray = `${circumference}`;
+const STORAGE_KEY = "workout-timer-plan-v1";
+const DEFAULT_PATTERN = [
+  { suffix: "A", seconds: 30 },
+  { suffix: "B", seconds: 30 },
+  { suffix: "C", seconds: 30 },
+  { suffix: "D", seconds: 30 },
+];
 
-const workoutPlan = {
-  description: "Workout Easy",
-  exercises: [
-    {
-      name: "Cardio",
-      workSeconds: 60,
-      restSeconds: 0,
-      betweenRestSeconds: 120,
-      rounds: Array.from({ length: 10 }, (_, index) => ({
-        label: `Sequence ${index + 1}`,
-        description: `Cardio sequence ${index + 1}`,
-      })),
-    },
-    {
-      name: "Body",
-      workSeconds: 40,
-      restSeconds: 20,
-      betweenRestSeconds: 120,
-      rounds: Array.from({ length: 8 }, (_, index) => ({
-        label: `Sequence ${index + 1}`,
-        description: `Body sequence ${index + 1}`,
-      })),
-    },
-    {
-      name: "Abs",
-      pattern: [
-        { suffix: "A", seconds: 30 },
-        { suffix: "B", seconds: 30 },
-        { suffix: "C", seconds: 30 },
-        { suffix: "D", seconds: 30 },
-      ],
-      restSeconds: 60,
-      betweenRestSeconds: 0,
-      rounds: Array.from({ length: 3 }, (_, roundIndex) =>
-        ["A", "B", "C", "D"].map((suffix) => ({
-          label: `Sequence ${roundIndex + 1}${suffix}`,
-          description: `Abs sequence ${roundIndex + 1}${suffix}`,
-        })),
-      ).flat(),
-    },
-  ],
-};
+elements.ring.style.strokeDasharray = `${circumference}`;
 
 let audioContext;
 let wakeLock;
@@ -82,6 +49,107 @@ let lastCountdownSecond = null;
 let rafId = 0;
 let workoutPlanDirty = true;
 let lastWorkoutActiveKey = "";
+let nextExerciseId = 1;
+
+const workoutPlan = loadWorkoutPlan();
+
+function loadWorkoutPlan() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (stored?.exercises?.length) return normalizeWorkoutPlan(stored);
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+
+  return normalizeWorkoutPlan({
+    description: "Workout Easy",
+    exercises: [
+      createExercise({ name: "Cardio", mode: "single", rounds: 10, workSeconds: 60, restSeconds: 0, betweenRestSeconds: 120 }),
+      createExercise({ name: "Body", mode: "single", rounds: 8, workSeconds: 40, restSeconds: 20, betweenRestSeconds: 120 }),
+      createExercise({ name: "Abs", mode: "abcd", rounds: 3, restSeconds: 60, betweenRestSeconds: 0 }),
+    ],
+  });
+}
+
+function normalizeWorkoutPlan(plan) {
+  const normalized = {
+    description: plan.description || "Workout Easy",
+    exercises: plan.exercises.map((exercise, index) =>
+      createExercise({
+        id: exercise.id,
+        name: exercise.name || `Exercise ${index + 1}`,
+        mode: exercise.mode === "abcd" ? "abcd" : "single",
+        rounds: exercise.rounds,
+        workSeconds: exercise.workSeconds,
+        restSeconds: exercise.restSeconds,
+        betweenRestSeconds: exercise.betweenRestSeconds,
+        pattern: exercise.pattern,
+        sequences: exercise.sequences,
+      }),
+    ),
+  };
+
+  ensureExerciseCount(normalized.exercises.length, normalized);
+  return normalized;
+}
+
+function createExercise(options = {}) {
+  const exercise = {
+    id: options.id || `exercise-${Date.now()}-${nextExerciseId++}`,
+    name: options.name || "New exercise",
+    mode: options.mode === "abcd" ? "abcd" : "single",
+    rounds: clampNumber(options.rounds, 1, 99, 3),
+    workSeconds: clampNumber(options.workSeconds, 1, 3600, 40),
+    restSeconds: clampNumber(options.restSeconds, 0, 3600, 20),
+    betweenRestSeconds: clampNumber(options.betweenRestSeconds, 0, 3600, 0),
+    pattern: normalizePattern(options.pattern),
+    sequences: Array.isArray(options.sequences) ? options.sequences : [],
+  };
+
+  syncExerciseSequences(exercise);
+  return exercise;
+}
+
+function normalizePattern(pattern) {
+  if (!Array.isArray(pattern) || pattern.length !== DEFAULT_PATTERN.length) return DEFAULT_PATTERN.map((item) => ({ ...item }));
+  return DEFAULT_PATTERN.map((item, index) => ({
+    suffix: item.suffix,
+    seconds: clampNumber(pattern[index]?.seconds, 1, 3600, item.seconds),
+  }));
+}
+
+function ensureExerciseCount(count, plan = workoutPlan) {
+  const target = clampNumber(count, 1, 12, 1);
+  while (plan.exercises.length < target) {
+    plan.exercises.push(createExercise({ name: `Exercise ${plan.exercises.length + 1}` }));
+  }
+  plan.exercises.length = target;
+  plan.exercises.forEach(syncExerciseSequences);
+}
+
+function sequenceLabels(exercise) {
+  if (exercise.mode === "abcd") {
+    return Array.from({ length: exercise.rounds }, (_, roundIndex) =>
+      exercise.pattern.map((segment) => `Sequence ${roundIndex + 1}${segment.suffix}`),
+    ).flat();
+  }
+
+  return Array.from({ length: exercise.rounds }, (_, index) => `Sequence ${index + 1}`);
+}
+
+function syncExerciseSequences(exercise, options = {}) {
+  const preserveByIndex = options.preserveByIndex ?? true;
+  const existingByLabel = new Map(exercise.sequences.map((sequence) => [sequence.label, sequence.description]));
+  const labels = sequenceLabels(exercise);
+  exercise.sequences = labels.map((label, index) => ({
+    label,
+    description: existingByLabel.get(label) || (preserveByIndex ? exercise.sequences[index]?.description : "") || `${exercise.name} ${label}`,
+  }));
+}
+
+function saveWorkoutPlan() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(workoutPlan));
+}
 
 function readSettings() {
   return {
@@ -137,12 +205,13 @@ function buildWorkoutSteps() {
   const builtSteps = [];
 
   workoutPlan.exercises.forEach((exercise, exerciseIndex) => {
+    syncExerciseSequences(exercise);
     const exerciseNumber = exerciseIndex + 1;
 
-    if (exercise.pattern) {
-      for (let round = 1; round <= 3; round += 1) {
+    if (exercise.mode === "abcd") {
+      for (let round = 1; round <= exercise.rounds; round += 1) {
         exercise.pattern.forEach((segment) => {
-          const sequence = exercise.rounds.find((item) => item.label === `Sequence ${round}${segment.suffix}`);
+          const sequence = exercise.sequences.find((item) => item.label === `Sequence ${round}${segment.suffix}`);
           builtSteps.push({
             type: "work",
             exerciseIndex,
@@ -150,11 +219,11 @@ function buildWorkoutSteps() {
             title: sequence?.label ?? `Sequence ${round}${segment.suffix}`,
             description: sequence?.description ?? "",
             seconds: segment.seconds,
-            timelineKey: `${exerciseIndex}-${round}-${segment.suffix}`,
+            timelineKey: `${exercise.id}-${round}-${segment.suffix}`,
           });
         });
 
-        if (round < 3 && exercise.restSeconds > 0) {
+        if (round < exercise.rounds && exercise.restSeconds > 0) {
           builtSteps.push({
             type: "rest",
             exerciseIndex,
@@ -162,23 +231,23 @@ function buildWorkoutSteps() {
             title: "Rest",
             description: `${exercise.restSeconds}s rest`,
             seconds: exercise.restSeconds,
-            timelineKey: `${exerciseIndex}-${round}-rest`,
+            timelineKey: `${exercise.id}-${round}-rest`,
           });
         }
       }
     } else {
-      exercise.rounds.forEach((round, roundIndex) => {
+      exercise.sequences.forEach((sequence, sequenceIndex) => {
         builtSteps.push({
           type: "work",
           exerciseIndex,
           label: `Exercise ${exerciseNumber} - ${exercise.name}`,
-          title: round.label,
-          description: round.description,
+          title: sequence.label,
+          description: sequence.description,
           seconds: exercise.workSeconds,
-          timelineKey: `${exerciseIndex}-${roundIndex}-work`,
+          timelineKey: `${exercise.id}-${sequenceIndex}-work`,
         });
 
-        if (exercise.restSeconds > 0 && roundIndex < exercise.rounds.length - 1) {
+        if (exercise.restSeconds > 0 && sequenceIndex < exercise.sequences.length - 1) {
           builtSteps.push({
             type: "rest",
             exerciseIndex,
@@ -186,7 +255,7 @@ function buildWorkoutSteps() {
             title: "Rest",
             description: `${exercise.restSeconds}s rest`,
             seconds: exercise.restSeconds,
-            timelineKey: `${exerciseIndex}-${roundIndex}-rest`,
+            timelineKey: `${exercise.id}-${sequenceIndex}-rest`,
           });
         }
       });
@@ -200,7 +269,7 @@ function buildWorkoutSteps() {
         title: "Exercise Rest",
         description: `${exercise.betweenRestSeconds}s rest`,
         seconds: exercise.betweenRestSeconds,
-        timelineKey: `${exerciseIndex}-between-rest`,
+        timelineKey: `${exercise.id}-between-rest`,
       });
     }
   });
@@ -287,7 +356,9 @@ function renderSimpleTimeline() {
 }
 
 function renderWorkoutPlan() {
+  elements.workoutTitle.textContent = workoutPlan.description;
   elements.workoutDescription.value = workoutPlan.description;
+  elements.exerciseCount.value = workoutPlan.exercises.length;
   elements.workoutSummary.textContent = `${workoutPlan.exercises.length} exercises`;
   elements.workoutList.innerHTML = "";
   const active = currentStep();
@@ -297,68 +368,99 @@ function renderWorkoutPlan() {
     card.className = "exercise-card";
 
     const title = document.createElement("h3");
-    title.textContent = `Exercise ${exerciseIndex + 1} - ${exercise.name}`;
+    title.textContent = `Exercise ${exerciseIndex + 1}`;
     card.append(title);
+
+    const controls = document.createElement("div");
+    controls.className = "exercise-controls";
+
+    controls.append(
+      textInputField("Description", exercise.name, (value) => {
+        exercise.name = value || `Exercise ${exerciseIndex + 1}`;
+        syncExerciseSequences(exercise);
+        applyWorkoutChange(true);
+      }),
+    );
+
+    controls.append(
+      selectField(
+        "Timing type",
+        exercise.mode,
+        [
+          ["single", "Single interval"],
+          ["abcd", "ABCD sequence"],
+        ],
+        (value) => {
+          exercise.mode = value;
+          syncExerciseSequences(exercise, { preserveByIndex: false });
+          applyWorkoutChange(true);
+        },
+      ),
+    );
+
+    controls.append(numberField("Rounds", exercise.rounds, 1, 99, "", (value) => {
+      exercise.rounds = value;
+      syncExerciseSequences(exercise);
+      applyWorkoutChange(true);
+    }));
+
+    if (exercise.mode === "single") {
+      controls.append(numberField("Work", exercise.workSeconds, 1, 3600, "s", (value) => {
+        exercise.workSeconds = value;
+        applyWorkoutChange(true);
+      }));
+    } else {
+      exercise.pattern.forEach((segment) => {
+        controls.append(numberField(`${segment.suffix} work`, segment.seconds, 1, 3600, "s", (value) => {
+          segment.seconds = value;
+          applyWorkoutChange(true);
+        }));
+      });
+    }
+
+    controls.append(numberField(exercise.mode === "abcd" ? "Rest after ABCD round" : "Rest between sequences", exercise.restSeconds, 0, 3600, "s", (value) => {
+      exercise.restSeconds = value;
+      applyWorkoutChange(true);
+    }));
+
+    if (exerciseIndex < workoutPlan.exercises.length - 1) {
+      controls.append(numberField("Rest before next exercise", exercise.betweenRestSeconds, 0, 3600, "s", (value) => {
+        exercise.betweenRestSeconds = value;
+        applyWorkoutChange(true);
+      }));
+    }
+
+    card.append(controls);
 
     const meta = document.createElement("div");
     meta.className = "exercise-meta";
     meta.append(textLine(formatExerciseTiming(exercise)));
-    meta.append(textLine(`${exercise.rounds.length} sequences`));
+    meta.append(textLine(`${exercise.sequences.length} sequences`));
     card.append(meta);
 
     const list = document.createElement("div");
     list.className = "sequence-list";
-    exercise.rounds.forEach((round) => {
+    exercise.sequences.forEach((sequence) => {
       const item = document.createElement("label");
       item.className = "sequence-item";
-      item.classList.toggle("active", active?.description === round.description && active?.exerciseIndex === exerciseIndex);
+      item.classList.toggle("active", active?.title === sequence.label && active?.exerciseIndex === exerciseIndex);
 
       const label = document.createElement("span");
       label.className = "sequence-label";
-      label.textContent = round.label;
+      label.textContent = sequence.label;
 
       const input = document.createElement("input");
       input.type = "text";
-      input.value = round.description;
+      input.value = sequence.description;
       input.addEventListener("change", () => {
-        round.description = input.value.trim() || round.label;
-        if (!running) rebuildSteps();
-        workoutPlanDirty = true;
-        render();
+        sequence.description = input.value.trim() || sequence.label;
+        applyWorkoutChange(false);
       });
 
       item.append(label, input);
       list.append(item);
     });
     card.append(list);
-
-    if (exercise.betweenRestSeconds > 0 && exerciseIndex < workoutPlan.exercises.length - 1) {
-      const restField = document.createElement("label");
-      restField.className = "field rest-row";
-
-      const label = document.createElement("span");
-      label.textContent = "Rest before next exercise";
-
-      const inputUnit = document.createElement("div");
-      inputUnit.className = "input-unit";
-      const input = document.createElement("input");
-      input.type = "number";
-      input.inputMode = "numeric";
-      input.min = "0";
-      input.max = "3600";
-      input.value = exercise.betweenRestSeconds;
-      input.addEventListener("change", () => {
-        exercise.betweenRestSeconds = clampNumber(input.value, 0, 3600, 120);
-        if (!running) rebuildSteps();
-        workoutPlanDirty = true;
-        render();
-      });
-      const unit = document.createElement("span");
-      unit.textContent = "s";
-      inputUnit.append(input, unit);
-      restField.append(label, inputUnit);
-      card.append(restField);
-    }
 
     elements.workoutList.append(card);
   });
@@ -370,13 +472,90 @@ function textLine(text) {
   return node;
 }
 
-function formatExerciseTiming(exercise) {
-  if (exercise.pattern) {
-    const pattern = exercise.pattern.map((item) => `${item.suffix} ${item.seconds}s`).join(", ");
-    return `Timing: 3 rounds of ${pattern}, ${exercise.restSeconds}s rest`;
+function textInputField(labelText, value, onChange) {
+  const field = document.createElement("label");
+  field.className = "field";
+
+  const label = document.createElement("span");
+  label.textContent = labelText;
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = value;
+  input.addEventListener("change", () => onChange(input.value.trim()));
+
+  field.append(label, input);
+  return field;
+}
+
+function numberField(labelText, value, min, max, unitText, onChange) {
+  const field = document.createElement("label");
+  field.className = "field";
+
+  const label = document.createElement("span");
+  label.textContent = labelText;
+
+  const inputWrap = document.createElement("div");
+  inputWrap.className = unitText ? "input-unit" : "input-unit no-unit";
+
+  const input = document.createElement("input");
+  input.type = "number";
+  input.inputMode = "numeric";
+  input.min = String(min);
+  input.max = String(max);
+  input.value = value;
+  input.addEventListener("change", () => {
+    const nextValue = clampNumber(input.value, min, max, value);
+    input.value = nextValue;
+    onChange(nextValue);
+  });
+
+  inputWrap.append(input);
+  if (unitText) {
+    const unit = document.createElement("span");
+    unit.textContent = unitText;
+    inputWrap.append(unit);
   }
 
-  return `Timing: ${exercise.rounds.length} rounds, ${exercise.workSeconds}s work, ${exercise.restSeconds}s rest`;
+  field.append(label, inputWrap);
+  return field;
+}
+
+function selectField(labelText, value, options, onChange) {
+  const field = document.createElement("label");
+  field.className = "field";
+
+  const label = document.createElement("span");
+  label.textContent = labelText;
+
+  const select = document.createElement("select");
+  options.forEach(([optionValue, text]) => {
+    const option = document.createElement("option");
+    option.value = optionValue;
+    option.textContent = text;
+    option.selected = optionValue === value;
+    select.append(option);
+  });
+  select.addEventListener("change", () => onChange(select.value));
+
+  field.append(label, select);
+  return field;
+}
+
+function formatExerciseTiming(exercise) {
+  if (exercise.mode === "abcd") {
+    const pattern = exercise.pattern.map((item) => `${item.suffix} ${item.seconds}s`).join(", ");
+    return `Timing: ${exercise.rounds} rounds of ${pattern}, ${exercise.restSeconds}s rest`;
+  }
+
+  return `Timing: ${exercise.rounds} rounds, ${exercise.workSeconds}s work, ${exercise.restSeconds}s rest`;
+}
+
+function applyWorkoutChange(structural) {
+  saveWorkoutPlan();
+  workoutPlanDirty = true;
+  if (structural || !running) rebuildSteps();
+  render();
 }
 
 function resetTimer() {
@@ -543,9 +722,14 @@ function toggleSound() {
 
 elements.workoutDescription.addEventListener("change", () => {
   workoutPlan.description = elements.workoutDescription.value.trim() || "Workout Easy";
-  workoutPlanDirty = true;
-  render();
+  applyWorkoutChange(false);
 });
+
+elements.exerciseCount.addEventListener("change", () => {
+  ensureExerciseCount(elements.exerciseCount.value);
+  applyWorkoutChange(true);
+});
+
 elements.simpleMode.addEventListener("click", () => setMode("simple"));
 elements.workoutMode.addEventListener("click", () => setMode("workout"));
 elements.startPause.addEventListener("click", startPause);
