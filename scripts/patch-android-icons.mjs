@@ -28,19 +28,35 @@ async function writeResource(relativePath, content) {
   await writeFile(filePath, content);
 }
 
-async function resourceExists(resourceName) {
+async function setColorResource(resourceName, value) {
   const valuesDir = join(resDir, "values");
-  try {
-    const files = await readdir(valuesDir);
-    const xmlFiles = files.filter((file) => file.endsWith(".xml"));
-    const contents = await Promise.all(
-      xmlFiles.map((file) => readFile(join(valuesDir, file), "utf8")),
-    );
-    return contents.some((content) => content.includes(`name="${resourceName}"`));
-  } catch (error) {
-    if (error.code === "ENOENT") return false;
-    throw error;
+  await mkdir(valuesDir, { recursive: true });
+  const files = await readdir(valuesDir);
+  const xmlFiles = files.filter((file) => file.endsWith(".xml"));
+
+  for (const file of xmlFiles) {
+    const filePath = join(valuesDir, file);
+    const content = await readFile(filePath, "utf8");
+    const colorPattern = new RegExp(`(<color\\s+name="${resourceName}"\\s*>)([^<]+)(</color>)`);
+    if (colorPattern.test(content)) {
+      await writeFile(filePath, content.replace(colorPattern, `$1${value}$3`));
+      return;
+    }
   }
+
+  let colors = await readTextIfExists(
+    colorsFile,
+    `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+</resources>
+`,
+  );
+  colors = colors.replace(
+    /<\/resources>/,
+    `    <color name="${resourceName}">${value}</color>
+</resources>`,
+  );
+  await writeResource(join("values", "colors.xml"), colors);
 }
 
 function makeCrcTable() {
@@ -173,11 +189,14 @@ function fillRoundedRect(buffer, width, x, y, rectWidth, rectHeight, radius, rgb
 }
 
 function renderIcon(size, transparentBackground = false) {
-  const scale = size / 32;
+  const iconScale = transparentBackground ? 0.56 : 0.72;
+  const scale = (size * iconScale) / 32;
+  const offset = (size - 32 * scale) / 2;
+  const point = (value) => offset + value * scale;
   const buffer = Buffer.alloc(size * size * 4);
 
   if (!transparentBackground) {
-    const bg = color("#141414");
+    const bg = color("#201532");
     for (let i = 0; i < buffer.length; i += 4) {
       buffer[i] = bg[0];
       buffer[i + 1] = bg[1];
@@ -189,33 +208,19 @@ function renderIcon(size, transparentBackground = false) {
   const light = color("#ede7f6");
   const purple = color("#b39ddb");
 
-  fillCircle(buffer, size, 18 * scale, 18 * scale, 7 * scale, light);
-  drawCircleStroke(buffer, size, 18 * scale, 18 * scale, 11 * scale, 2.2 * scale, purple, 5.05, 4.15);
-  fillRoundedRect(buffer, size, 14 * scale, 2 * scale, 8 * scale, 6 * scale, 2 * scale, purple);
-  drawLine(buffer, size, 18 * scale, 18 * scale, 22.8 * scale, 14.2 * scale, 2 * scale, purple);
-  fillCircle(buffer, size, 18 * scale, 18 * scale, 3 * scale, purple);
-  drawLine(buffer, size, 5 * scale, 16 * scale, 11 * scale, 16 * scale, 2 * scale, purple);
-  drawLine(buffer, size, 3 * scale, 20 * scale, 11 * scale, 20 * scale, 2 * scale, purple);
-  drawLine(buffer, size, 5 * scale, 24 * scale, 11 * scale, 24 * scale, 2 * scale, purple);
+  fillCircle(buffer, size, point(18), point(18), 7 * scale, light);
+  drawCircleStroke(buffer, size, point(18), point(18), 11 * scale, 2.2 * scale, purple, 5.05, 4.15);
+  fillRoundedRect(buffer, size, point(14), point(2), 8 * scale, 6 * scale, 2 * scale, purple);
+  drawLine(buffer, size, point(18), point(18), point(22.8), point(14.2), 2 * scale, purple);
+  fillCircle(buffer, size, point(18), point(18), 3 * scale, purple);
+  drawLine(buffer, size, point(5), point(16), point(11), point(16), 2 * scale, purple);
+  drawLine(buffer, size, point(3), point(20), point(11), point(20), 2 * scale, purple);
+  drawLine(buffer, size, point(5), point(24), point(11), point(24), 2 * scale, purple);
 
   return encodePng(size, size, buffer);
 }
 
-if (!(await resourceExists("ic_launcher_background"))) {
-  let colors = await readTextIfExists(
-    colorsFile,
-    `<?xml version="1.0" encoding="utf-8"?>
-<resources>
-</resources>
-`,
-  );
-  colors = colors.replace(
-    /<\/resources>/,
-    `    <color name="ic_launcher_background">#141414</color>
-</resources>`,
-  );
-  await writeResource(join("values", "colors.xml"), colors);
-}
+await setColorResource("ic_launcher_background", "#201532");
 
 let manifest = await readTextIfExists(manifestFile, "");
 if (!manifest.includes("android.permission.VIBRATE")) {
