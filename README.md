@@ -22,14 +22,17 @@ python -m http.server 5173
 Then open:
 
 ```text
-http://localhost:5173/index.html?v=3
+http://localhost:5173/index.html?v=6
 ```
 
 ## Android Distribution
 
-This project is currently a Progressive Web App. To distribute it through Obtainium, package it as an Android APK and publish the APK in a GitHub Release.
+This project is currently a Progressive Web App wrapped as an Android app with Capacitor.
 
-This repository includes a GitHub Actions workflow that builds a signed Android APK whenever a tag such as `v1.0.0` is pushed.
+This repository includes a GitHub Actions workflow that builds signed Android release artifacts whenever a tag such as `v1.0.0` is pushed:
+
+- `.apk` for Obtainium and direct installation
+- `.aab` for Google Play Store publishing
 
 ### 1. Create an Android Signing Key
 
@@ -89,10 +92,11 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-GitHub Actions will build the APK and publish a GitHub Release with a file named:
+GitHub Actions will build the APK and AAB, then publish a GitHub Release with files named:
 
 ```text
 workout-timer-v1.0.0.apk
+workout-timer-v1.0.0.aab
 ```
 
 ### 4. Install with Obtainium
@@ -117,3 +121,25 @@ https://github.com/tcaccia/workout-timer
 6. Save the app and install it.
 
 For future updates, change the app, commit, push, then create a new tag such as `v1.0.1`. Obtainium will detect the new GitHub Release.
+
+## Google Play Publishing
+
+Use the `.aab` file from the GitHub Release for Google Play Console.
+
+Recommended initial monetization path:
+
+- publish as a paid app
+- do not include ads
+- set the price in Play Console
+
+Before production, complete the Play Console setup:
+
+- app name, short description, full description
+- app icon and screenshots
+- content rating questionnaire
+- Data safety form
+- privacy policy URL
+- target audience and app content declarations
+- pricing and distribution
+
+If your Play Console personal developer account was created after November 13, 2023, Google may require a closed test with at least 12 opted-in testers for 14 days before production access.

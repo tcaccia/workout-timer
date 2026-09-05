@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build signed APK
+    name: Build signed Android artifacts
     runs-on: ubuntu-latest
 
     steps:
@@ -18,10 +18,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -51,9 +57,19 @@ jobs:
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
 
       - name: Configure release signing
+        env:
+          APP_VERSION_CODE: ${{ github.run_number }}
+          APP_VERSION_NAME: ${{ github.ref_name }}
         run: node scripts/patch-android-signing.mjs
 
-      - name: Build release APK
+      - name: Configure Play target API
+        run: |
+          if [ -f android/variables.gradle ]; then
+            sed -i 's/compileSdkVersion = [0-9][0-9]*/compileSdkVersion = 36/' android/variables.gradle
+            sed -i 's/targetSdkVersion = [0-9][0-9]*/targetSdkVersion = 36/' android/variables.gradle
+          fi
+
+      - name: Build release APK and App Bundle
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -61,15 +77,19 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease bundleRelease
 
-      - name: Rename APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk "workout-timer-${GITHUB_REF_NAME}.apk"
+      - name: Rename release artifacts
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk "workout-timer-${GITHUB_REF_NAME}.apk"
+          cp android/app/build/outputs/bundle/release/app-release.aab "workout-timer-${GITHUB_REF_NAME}.aab"
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "workout-timer-${GITHUB_REF_NAME}.apk" \
+          gh release create "$GITHUB_REF_NAME" \
+            "workout-timer-${GITHUB_REF_NAME}.apk" \
+            "workout-timer-${GITHUB_REF_NAME}.aab" \
             --title "Workout Timer ${GITHUB_REF_NAME}" \
-            --notes "Signed Android APK release for Obtainium."
+            --notes "Signed Android release. Use the APK for Obtainium and the AAB for Google Play."
