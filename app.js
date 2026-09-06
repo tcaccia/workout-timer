@@ -259,9 +259,9 @@ function saveWorkoutPlan() {
 
 function readSettings() {
   return {
-    reps: clampNumber(elements.reps.value, 1, 99, 10),
-    work: clampNumber(elements.work.value, 1, 3600, 40),
-    rest: clampNumber(elements.rest.value, 0, 3600, 20),
+    reps: clampNumber(elements.reps.value, 1, 99, 1),
+    work: clampNumber(elements.work.value, 1, 3600, 1),
+    rest: clampNumber(elements.rest.value, 0, 3600, 0),
   };
 }
 
@@ -269,6 +269,16 @@ function clampNumber(value, min, max, fallback) {
   const number = Number.parseInt(value, 10);
   if (!Number.isFinite(number)) return fallback;
   return Math.min(max, Math.max(min, number));
+}
+
+function hasValidInteger(value, min, max) {
+  if (value === "") return false;
+  const number = Number.parseInt(value, 10);
+  return Number.isFinite(number) && number >= min && number <= max;
+}
+
+function setInputValueWhenBlurred(input, value) {
+  if (document.activeElement !== input) input.value = value;
 }
 
 function formatTime(ms) {
@@ -447,9 +457,9 @@ function render() {
 
 function renderSimpleTimeline() {
   const settings = readSettings();
-  elements.reps.value = settings.reps;
-  elements.work.value = settings.work;
-  elements.rest.value = settings.rest;
+  setInputValueWhenBlurred(elements.reps, settings.reps);
+  setInputValueWhenBlurred(elements.work, settings.work);
+  setInputValueWhenBlurred(elements.rest, settings.rest);
   elements.timeline.innerHTML = "";
 
   for (let round = 1; round <= settings.reps; round += 1) {
@@ -927,11 +937,23 @@ function toggleSound() {
   elements.soundIcon.textContent = soundEnabled ? "♪" : "×";
 }
 
-["input", "change"].forEach((eventName) => {
-  [elements.reps, elements.work, elements.rest].forEach((input) => {
-    input.addEventListener(eventName, () => {
-      if (!running && activeMode === "simple") resetTimer();
-    });
+[
+  [elements.reps, 1, 99],
+  [elements.work, 1, 3600],
+  [elements.rest, 0, 3600],
+].forEach(([input, min, max]) => {
+  input.addEventListener("input", () => {
+    if (running || activeMode !== "simple" || !hasValidInteger(input.value, min, max)) return;
+    resetTimer();
+  });
+
+  input.addEventListener("change", () => {
+    if (!running && activeMode === "simple") resetTimer();
+  });
+
+  input.addEventListener("blur", () => {
+    input.value = clampNumber(input.value, min, max, min);
+    if (!running && activeMode === "simple") resetTimer();
   });
 });
 
