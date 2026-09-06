@@ -125,7 +125,7 @@ h2 {
 
 .mode-tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   padding: 4px;
   background: #151515;
@@ -268,6 +268,18 @@ h2 {
   padding: 0 14px;
 }
 
+.tiny-button {
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 9px;
+  font-size: 0.74rem;
+}
+
+.tiny-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
 .field-grid {
   display: grid;
   gap: 14px;
@@ -370,9 +382,22 @@ h2 {
   padding-top: 16px;
 }
 
-.exercise-card h3 {
-  margin: 0 0 10px;
+.exercise-header {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.exercise-card h3,
+.saved-details h3 {
+  margin: 0;
   font-size: 1rem;
+}
+
+.exercise-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .exercise-controls {
@@ -450,22 +475,27 @@ h2 {
   min-width: 0;
 }
 
-.saved-details h3,
 .saved-details p,
 .empty-state {
   margin: 0;
 }
 
-.saved-details h3 {
-  font-size: 1rem;
-  overflow-wrap: anywhere;
-}
-
 .saved-details p,
-.empty-state {
+.empty-state,
+.info-list p {
   color: var(--muted);
   font-size: 0.86rem;
   font-weight: 800;
+}
+
+.info-list {
+  display: grid;
+  gap: 12px;
+}
+
+.info-list p {
+  margin: 0;
+  line-height: 1.45;
 }
 
 .saved-actions {
@@ -508,6 +538,15 @@ h2 {
 
   .phase-strip {
     display: grid;
+  }
+
+  .mode-tabs {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .mode-tab {
+    min-height: 40px;
+    font-size: 0.86rem;
   }
 
   .controls {

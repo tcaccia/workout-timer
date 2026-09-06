@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#141414" />
     <title>Workout Timer</title>
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="stylesheet" href="styles.css?v=10" />
+    <link rel="stylesheet" href="styles.css?v=11" />
   </head>
   <body>
     <main class="app-shell">
@@ -25,6 +25,7 @@
           <button class="mode-tab active" id="simpleMode" type="button" role="tab" aria-selected="true">Simple</button>
           <button class="mode-tab" id="workoutMode" type="button" role="tab" aria-selected="false">Workout</button>
           <button class="mode-tab" id="savedMode" type="button" role="tab" aria-selected="false">Saved</button>
+          <button class="mode-tab" id="aboutMode" type="button" role="tab" aria-selected="false">About</button>
         </div>
 
         <div class="phase-strip" aria-live="polite">
@@ -94,6 +95,7 @@
             <input id="exerciseCount" type="number" inputmode="numeric" min="1" max="12" value="3" />
           </label>
         </div>
+        <button class="secondary-button full-button" id="addExercise" type="button">Add Exercise</button>
         <div class="workout-list" id="workoutList"></div>
         <button class="primary-button full-button" id="saveWorkout" type="button">Save Workout</button>
       </section>
@@ -108,8 +110,23 @@
         </div>
         <div class="saved-list" id="savedList"></div>
       </section>
+
+      <section class="settings-panel hidden" id="aboutSettings" aria-label="About and privacy">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Privacy</p>
+            <h2>About Workout Timer</h2>
+          </div>
+        </div>
+        <div class="info-list">
+          <p>Workout Timer is an offline interval timer for configurable workout plans.</p>
+          <p>No account is required.</p>
+          <p>Workout plans are stored on this device.</p>
+          <p>The app does not collect personal data, use analytics, or send workout data to a server.</p>
+        </div>
+      </section>
     </main>
 
-    <script src="app.js?v=10"></script>
+    <script src="app.js?v=11"></script>
   </body>
 </html>

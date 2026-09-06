@@ -28,6 +28,12 @@ Workout mode currently includes a sample full plan with:
 - rest timing between exercises
 - saved workout settings on the device
 - saved workout library with load and delete actions
+- native Android preferences storage when running in the packaged app
+- exercise add, duplicate, move, and delete actions
+
+## Privacy
+
+See [PRIVACY.md](PRIVACY.md).
 
 ## Run Locally
 
@@ -40,7 +46,7 @@ python -m http.server 5173
 Then open:
 
 ```text
-http://localhost:5173/index.html?v=10
+http://localhost:5173/index.html?v=11
 ```
 
 ## Android Distribution

@@ -2,14 +2,17 @@ const elements = {
   simpleMode: document.querySelector("#simpleMode"),
   workoutMode: document.querySelector("#workoutMode"),
   savedMode: document.querySelector("#savedMode"),
+  aboutMode: document.querySelector("#aboutMode"),
   simpleSettings: document.querySelector("#simpleSettings"),
   workoutSettings: document.querySelector("#workoutSettings"),
   savedSettings: document.querySelector("#savedSettings"),
+  aboutSettings: document.querySelector("#aboutSettings"),
   workoutTitle: document.querySelector("#workoutTitle"),
   workoutDescription: document.querySelector("#workoutDescription"),
   workoutSummary: document.querySelector("#workoutSummary"),
   exerciseCount: document.querySelector("#exerciseCount"),
   workoutList: document.querySelector("#workoutList"),
+  addExercise: document.querySelector("#addExercise"),
   saveWorkout: document.querySelector("#saveWorkout"),
   savedSummary: document.querySelector("#savedSummary"),
   savedList: document.querySelector("#savedList"),
@@ -32,6 +35,7 @@ const radius = 104;
 const circumference = 2 * Math.PI * radius;
 const STORAGE_KEY = "workout-timer-plan-v1";
 const SAVED_WORKOUTS_KEY = "workout-timer-saved-workouts-v1";
+const nativePreferences = window.Capacitor?.Plugins?.Preferences;
 const DEFAULT_PATTERN = [
   { suffix: "A", seconds: 30 },
   { suffix: "B", seconds: 30 },
@@ -60,6 +64,29 @@ let nextExerciseId = 1;
 const workoutPlan = loadWorkoutPlan();
 let savedWorkouts = loadSavedWorkouts();
 
+async function hydrateNativeStorage() {
+  if (!nativePreferences) return;
+
+  try {
+    const [storedPlan, storedSaved] = await Promise.all([nativePreferences.get({ key: STORAGE_KEY }), nativePreferences.get({ key: SAVED_WORKOUTS_KEY })]);
+    if (storedPlan.value) {
+      replaceWorkoutPlan(JSON.parse(storedPlan.value));
+    }
+    if (storedSaved.value) {
+      savedWorkouts = normalizeSavedWorkouts(JSON.parse(storedSaved.value));
+    }
+  } catch {
+    savedWorkouts = loadSavedWorkouts();
+  }
+  render();
+}
+
+function writeStorage(key, value) {
+  const payload = JSON.stringify(value);
+  localStorage.setItem(key, payload);
+  nativePreferences?.set({ key, value: payload }).catch(() => {});
+}
+
 function loadWorkoutPlan() {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -81,16 +108,7 @@ function loadWorkoutPlan() {
 function loadSavedWorkouts() {
   try {
     const stored = JSON.parse(localStorage.getItem(SAVED_WORKOUTS_KEY));
-    if (Array.isArray(stored)) {
-      return stored
-        .filter((item) => item?.plan?.exercises?.length)
-        .map((item) => ({
-          id: item.id || `saved-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-          name: item.name || item.plan.description || "Saved workout",
-          savedAt: item.savedAt || new Date().toISOString(),
-          plan: normalizeWorkoutPlan(item.plan),
-        }));
-    }
+    if (Array.isArray(stored)) return normalizeSavedWorkouts(stored);
   } catch {
     localStorage.removeItem(SAVED_WORKOUTS_KEY);
   }
@@ -98,8 +116,19 @@ function loadSavedWorkouts() {
   return [];
 }
 
+function normalizeSavedWorkouts(workouts) {
+  return workouts
+    .filter((item) => item?.plan?.exercises?.length)
+    .map((item) => ({
+      id: item.id || `saved-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      name: item.name || item.plan.description || "Saved workout",
+      savedAt: item.savedAt || new Date().toISOString(),
+      plan: normalizeWorkoutPlan(item.plan),
+    }));
+}
+
 function saveSavedWorkouts() {
-  localStorage.setItem(SAVED_WORKOUTS_KEY, JSON.stringify(savedWorkouts));
+  writeStorage(SAVED_WORKOUTS_KEY, savedWorkouts);
 }
 
 function normalizeWorkoutPlan(plan) {
@@ -135,6 +164,39 @@ function replaceWorkoutPlan(plan) {
   saveWorkoutPlan();
   workoutPlanDirty = true;
   resetTimer();
+}
+
+function addExercise() {
+  workoutPlan.exercises.push(createExercise({ name: `Exercise ${workoutPlan.exercises.length + 1}` }));
+  applyWorkoutChange(true);
+}
+
+function duplicateExercise(index) {
+  const source = workoutPlan.exercises[index];
+  const copy = createExercise({
+    ...cloneWorkoutPlan(source),
+    id: undefined,
+    name: `${source.name} Copy`,
+  });
+  workoutPlan.exercises.splice(index + 1, 0, copy);
+  applyWorkoutChange(true);
+}
+
+function moveExercise(index, direction) {
+  const nextIndex = index + direction;
+  if (nextIndex < 0 || nextIndex >= workoutPlan.exercises.length) return;
+
+  const [exercise] = workoutPlan.exercises.splice(index, 1);
+  workoutPlan.exercises.splice(nextIndex, 0, exercise);
+  applyWorkoutChange(true);
+}
+
+function deleteExercise(index) {
+  if (workoutPlan.exercises.length <= 1) return;
+  if (!confirm("Delete this exercise?")) return;
+
+  workoutPlan.exercises.splice(index, 1);
+  applyWorkoutChange(true);
 }
 
 function createExercise(options = {}) {
@@ -192,7 +254,7 @@ function syncExerciseSequences(exercise, options = {}) {
 }
 
 function saveWorkoutPlan() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(workoutPlan));
+  writeStorage(STORAGE_KEY, workoutPlan);
 }
 
 function readSettings() {
@@ -373,6 +435,8 @@ function render() {
     return;
   }
 
+  if (activeMode === "about") return;
+
   const activeKey = step.timelineKey;
   if (workoutPlanDirty || activeKey !== lastWorkoutActiveKey) {
     renderWorkoutPlan();
@@ -416,9 +480,23 @@ function renderWorkoutPlan() {
     const card = document.createElement("article");
     card.className = "exercise-card";
 
+    const header = document.createElement("div");
+    header.className = "exercise-header";
+
     const title = document.createElement("h3");
     title.textContent = `Exercise ${exerciseIndex + 1}`;
-    card.append(title);
+
+    const actions = document.createElement("div");
+    actions.className = "exercise-actions";
+    actions.append(
+      actionButton("Up", () => moveExercise(exerciseIndex, -1), exerciseIndex === 0),
+      actionButton("Down", () => moveExercise(exerciseIndex, 1), exerciseIndex === workoutPlan.exercises.length - 1),
+      actionButton("Duplicate", () => duplicateExercise(exerciseIndex)),
+      actionButton("Delete", () => deleteExercise(exerciseIndex), workoutPlan.exercises.length <= 1),
+    );
+
+    header.append(title, actions);
+    card.append(header);
 
     const controls = document.createElement("div");
     controls.className = "exercise-controls";
@@ -646,6 +724,16 @@ function selectField(labelText, value, options, onChange) {
   return field;
 }
 
+function actionButton(label, onClick, disabled = false) {
+  const button = document.createElement("button");
+  button.className = "secondary-button tiny-button";
+  button.type = "button";
+  button.textContent = label;
+  button.disabled = disabled;
+  button.addEventListener("click", onClick);
+  return button;
+}
+
 function formatExerciseTiming(exercise) {
   if (exercise.mode === "abcd") {
     const pattern = exercise.pattern.map((item) => `${item.suffix} ${item.seconds}s`).join(", ");
@@ -756,12 +844,15 @@ function setMode(mode) {
   elements.simpleMode.classList.toggle("active", mode === "simple");
   elements.workoutMode.classList.toggle("active", mode === "workout");
   elements.savedMode.classList.toggle("active", mode === "saved");
+  elements.aboutMode.classList.toggle("active", mode === "about");
   elements.simpleMode.setAttribute("aria-selected", String(mode === "simple"));
   elements.workoutMode.setAttribute("aria-selected", String(mode === "workout"));
   elements.savedMode.setAttribute("aria-selected", String(mode === "saved"));
+  elements.aboutMode.setAttribute("aria-selected", String(mode === "about"));
   elements.simpleSettings.classList.toggle("hidden", mode !== "simple");
   elements.workoutSettings.classList.toggle("hidden", mode !== "workout");
   elements.savedSettings.classList.toggle("hidden", mode !== "saved");
+  elements.aboutSettings.classList.toggle("hidden", mode !== "about");
   workoutPlanDirty = true;
   resetTimer();
 }
@@ -857,6 +948,8 @@ elements.exerciseCount.addEventListener("change", () => {
 elements.simpleMode.addEventListener("click", () => setMode("simple"));
 elements.workoutMode.addEventListener("click", () => setMode("workout"));
 elements.savedMode.addEventListener("click", () => setMode("saved"));
+elements.aboutMode.addEventListener("click", () => setMode("about"));
+elements.addExercise.addEventListener("click", addExercise);
 elements.saveWorkout.addEventListener("click", saveCurrentWorkout);
 elements.startPause.addEventListener("click", startPause);
 elements.reset.addEventListener("click", resetTimer);
@@ -869,3 +962,4 @@ if ("serviceWorker" in navigator) {
 }
 
 resetTimer();
+hydrateNativeStorage();
