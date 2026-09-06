@@ -2,10 +2,11 @@
 
 A workout interval timer for mobile use.
 
-The app includes two modes:
+The app includes three modes:
 
 - Simple mode for a single repeated work/rest sequence
 - Workout mode for a complete multi-exercise training plan
+- Saved mode for loading previously saved workout plans
 
 Simple mode lets you configure:
 
@@ -26,6 +27,7 @@ Workout mode currently includes a sample full plan with:
 - editable sequence descriptions
 - rest timing between exercises
 - saved workout settings on the device
+- saved workout library with load and delete actions
 
 ## Run Locally
 
@@ -38,7 +40,7 @@ python -m http.server 5173
 Then open:
 
 ```text
-http://localhost:5173/index.html?v=9
+http://localhost:5173/index.html?v=10
 ```
 
 ## Android Distribution

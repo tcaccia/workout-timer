@@ -1,13 +1,18 @@
 const elements = {
   simpleMode: document.querySelector("#simpleMode"),
   workoutMode: document.querySelector("#workoutMode"),
+  savedMode: document.querySelector("#savedMode"),
   simpleSettings: document.querySelector("#simpleSettings"),
   workoutSettings: document.querySelector("#workoutSettings"),
+  savedSettings: document.querySelector("#savedSettings"),
   workoutTitle: document.querySelector("#workoutTitle"),
   workoutDescription: document.querySelector("#workoutDescription"),
   workoutSummary: document.querySelector("#workoutSummary"),
   exerciseCount: document.querySelector("#exerciseCount"),
   workoutList: document.querySelector("#workoutList"),
+  saveWorkout: document.querySelector("#saveWorkout"),
+  savedSummary: document.querySelector("#savedSummary"),
+  savedList: document.querySelector("#savedList"),
   reps: document.querySelector("#repsInput"),
   work: document.querySelector("#workInput"),
   rest: document.querySelector("#restInput"),
@@ -26,6 +31,7 @@ const elements = {
 const radius = 104;
 const circumference = 2 * Math.PI * radius;
 const STORAGE_KEY = "workout-timer-plan-v1";
+const SAVED_WORKOUTS_KEY = "workout-timer-saved-workouts-v1";
 const DEFAULT_PATTERN = [
   { suffix: "A", seconds: 30 },
   { suffix: "B", seconds: 30 },
@@ -52,6 +58,7 @@ let lastWorkoutActiveKey = "";
 let nextExerciseId = 1;
 
 const workoutPlan = loadWorkoutPlan();
+let savedWorkouts = loadSavedWorkouts();
 
 function loadWorkoutPlan() {
   try {
@@ -69,6 +76,30 @@ function loadWorkoutPlan() {
       createExercise({ name: "Abs", mode: "abcd", rounds: 3, restSeconds: 60, betweenRestSeconds: 0 }),
     ],
   });
+}
+
+function loadSavedWorkouts() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(SAVED_WORKOUTS_KEY));
+    if (Array.isArray(stored)) {
+      return stored
+        .filter((item) => item?.plan?.exercises?.length)
+        .map((item) => ({
+          id: item.id || `saved-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          name: item.name || item.plan.description || "Saved workout",
+          savedAt: item.savedAt || new Date().toISOString(),
+          plan: normalizeWorkoutPlan(item.plan),
+        }));
+    }
+  } catch {
+    localStorage.removeItem(SAVED_WORKOUTS_KEY);
+  }
+
+  return [];
+}
+
+function saveSavedWorkouts() {
+  localStorage.setItem(SAVED_WORKOUTS_KEY, JSON.stringify(savedWorkouts));
 }
 
 function normalizeWorkoutPlan(plan) {
@@ -91,6 +122,19 @@ function normalizeWorkoutPlan(plan) {
 
   ensureExerciseCount(normalized.exercises.length, normalized);
   return normalized;
+}
+
+function cloneWorkoutPlan(plan) {
+  return JSON.parse(JSON.stringify(plan));
+}
+
+function replaceWorkoutPlan(plan) {
+  const normalized = normalizeWorkoutPlan(plan);
+  workoutPlan.description = normalized.description;
+  workoutPlan.exercises = normalized.exercises;
+  saveWorkoutPlan();
+  workoutPlanDirty = true;
+  resetTimer();
 }
 
 function createExercise(options = {}) {
@@ -324,6 +368,11 @@ function render() {
     return;
   }
 
+  if (activeMode === "saved") {
+    renderSavedWorkouts();
+    return;
+  }
+
   const activeKey = step.timelineKey;
   if (workoutPlanDirty || activeKey !== lastWorkoutActiveKey) {
     renderWorkoutPlan();
@@ -466,6 +515,61 @@ function renderWorkoutPlan() {
   });
 }
 
+function renderSavedWorkouts() {
+  elements.savedSummary.textContent = `${savedWorkouts.length} saved`;
+  elements.savedList.innerHTML = "";
+
+  if (!savedWorkouts.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "No saved workouts yet.";
+    elements.savedList.append(empty);
+    return;
+  }
+
+  savedWorkouts.forEach((saved) => {
+    const card = document.createElement("article");
+    card.className = "saved-card";
+
+    const details = document.createElement("div");
+    details.className = "saved-details";
+
+    const title = document.createElement("h3");
+    title.textContent = saved.name;
+
+    const meta = document.createElement("p");
+    meta.textContent = `${saved.plan.exercises.length} exercises`;
+
+    details.append(title, meta);
+
+    const actions = document.createElement("div");
+    actions.className = "saved-actions";
+
+    const loadButton = document.createElement("button");
+    loadButton.className = "primary-button compact-button";
+    loadButton.type = "button";
+    loadButton.textContent = "Load";
+    loadButton.addEventListener("click", () => {
+      replaceWorkoutPlan(saved.plan);
+      setMode("workout");
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "secondary-button compact-button";
+    deleteButton.type = "button";
+    deleteButton.textContent = "Delete";
+    deleteButton.addEventListener("click", () => {
+      savedWorkouts = savedWorkouts.filter((item) => item.id !== saved.id);
+      saveSavedWorkouts();
+      renderSavedWorkouts();
+    });
+
+    actions.append(loadButton, deleteButton);
+    card.append(details, actions);
+    elements.savedList.append(card);
+  });
+}
+
 function textLine(text) {
   const node = document.createElement("span");
   node.textContent = text;
@@ -558,6 +662,23 @@ function applyWorkoutChange(structural) {
   render();
 }
 
+function saveCurrentWorkout() {
+  saveWorkoutPlan();
+  const now = new Date().toISOString();
+  const name = workoutPlan.description || "Saved workout";
+  savedWorkouts = [
+    {
+      id: `saved-${Date.now()}`,
+      name,
+      savedAt: now,
+      plan: cloneWorkoutPlan(workoutPlan),
+    },
+    ...savedWorkouts,
+  ];
+  saveSavedWorkouts();
+  setMode("saved");
+}
+
 function resetTimer() {
   running = false;
   currentStepIndex = 0;
@@ -634,10 +755,13 @@ function setMode(mode) {
   activeMode = mode;
   elements.simpleMode.classList.toggle("active", mode === "simple");
   elements.workoutMode.classList.toggle("active", mode === "workout");
+  elements.savedMode.classList.toggle("active", mode === "saved");
   elements.simpleMode.setAttribute("aria-selected", String(mode === "simple"));
   elements.workoutMode.setAttribute("aria-selected", String(mode === "workout"));
+  elements.savedMode.setAttribute("aria-selected", String(mode === "saved"));
   elements.simpleSettings.classList.toggle("hidden", mode !== "simple");
   elements.workoutSettings.classList.toggle("hidden", mode !== "workout");
+  elements.savedSettings.classList.toggle("hidden", mode !== "saved");
   workoutPlanDirty = true;
   resetTimer();
 }
@@ -732,6 +856,8 @@ elements.exerciseCount.addEventListener("change", () => {
 
 elements.simpleMode.addEventListener("click", () => setMode("simple"));
 elements.workoutMode.addEventListener("click", () => setMode("workout"));
+elements.savedMode.addEventListener("click", () => setMode("saved"));
+elements.saveWorkout.addEventListener("click", saveCurrentWorkout);
 elements.startPause.addEventListener("click", startPause);
 elements.reset.addEventListener("click", resetTimer);
 elements.soundToggle.addEventListener("click", toggleSound);
