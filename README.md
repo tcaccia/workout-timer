@@ -13,7 +13,7 @@ Simple mode lets you configure:
 - number of rounds
 - work duration
 - rest duration between rounds
-- sound cues for start, stop/rest, and workout completion
+- boosted sound cues for countdown, start, stop/rest, and workout completion
 
 The first default sequence is 10 rounds, 40 seconds of work, and 20 seconds of rest.
 
@@ -46,7 +46,7 @@ python -m http.server 5173
 Then open:
 
 ```text
-http://localhost:5173/index.html?v=12
+http://localhost:5173/index.html?v=13
 ```
 
 ## Android Distribution

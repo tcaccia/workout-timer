@@ -46,6 +46,7 @@ const DEFAULT_PATTERN = [
 elements.ring.style.strokeDasharray = `${circumference}`;
 
 let audioContext;
+let audioOutput;
 let wakeLock;
 let soundEnabled = true;
 let running = false;
@@ -874,22 +875,33 @@ function vibrate(pattern) {
 function playTone(type) {
   if (!soundEnabled) return;
   audioContext ||= new AudioContext();
+  if (audioContext.state === "suspended") audioContext.resume();
   const now = audioContext.currentTime;
-  const peakVolume = 0.85;
-  const tones = {
+  const output = getAudioOutput();
+  const cues = {
     start: [
-      [880, 0, 0.18],
-      [1175, 0.2, 0.22],
+      { frequency: 740, delay: 0, duration: 0.2, type: "square", gain: 0.52 },
+      { frequency: 1480, delay: 0, duration: 0.2, type: "sawtooth", gain: 0.18 },
+      { frequency: 988, delay: 0.2, duration: 0.24, type: "square", gain: 0.52 },
+      { frequency: 1976, delay: 0.2, duration: 0.24, type: "sawtooth", gain: 0.18 },
     ],
     stop: [
-      [392, 0, 0.18],
-      [330, 0.2, 0.26],
+      { frequency: 523, delay: 0, duration: 0.24, type: "square", gain: 0.55 },
+      { frequency: 1046, delay: 0, duration: 0.24, type: "sawtooth", gain: 0.18 },
+      { frequency: 392, delay: 0.24, duration: 0.3, type: "square", gain: 0.55 },
+      { frequency: 784, delay: 0.24, duration: 0.3, type: "sawtooth", gain: 0.18 },
     ],
-    tick: [[1568, 0, 0.08]],
+    tick: [
+      { frequency: 1760, delay: 0, duration: 0.12, type: "square", gain: 0.5 },
+      { frequency: 3520, delay: 0, duration: 0.12, type: "sine", gain: 0.16 },
+    ],
     finish: [
-      [880, 0, 0.18],
-      [988, 0.22, 0.18],
-      [1320, 0.44, 0.34],
+      { frequency: 740, delay: 0, duration: 0.22, type: "square", gain: 0.55 },
+      { frequency: 1480, delay: 0, duration: 0.22, type: "sawtooth", gain: 0.2 },
+      { frequency: 988, delay: 0.22, duration: 0.22, type: "square", gain: 0.55 },
+      { frequency: 1976, delay: 0.22, duration: 0.22, type: "sawtooth", gain: 0.2 },
+      { frequency: 1318, delay: 0.44, duration: 0.45, type: "square", gain: 0.6 },
+      { frequency: 2636, delay: 0.44, duration: 0.45, type: "sawtooth", gain: 0.22 },
     ],
   }[type];
 
@@ -902,18 +914,36 @@ function playTone(type) {
 
   vibrate(vibrationPatterns[type]);
 
-  tones.forEach(([frequency, delay, duration]) => {
+  cues.forEach((cue) => {
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
-    oscillator.type = "square";
-    oscillator.frequency.value = frequency;
-    gain.gain.setValueAtTime(0.0001, now + delay);
-    gain.gain.exponentialRampToValueAtTime(peakVolume, now + delay + 0.015);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + duration);
-    oscillator.connect(gain).connect(audioContext.destination);
-    oscillator.start(now + delay);
-    oscillator.stop(now + delay + duration + 0.03);
+    oscillator.type = cue.type;
+    oscillator.frequency.setValueAtTime(cue.frequency, now + cue.delay);
+    gain.gain.setValueAtTime(0.0001, now + cue.delay);
+    gain.gain.exponentialRampToValueAtTime(cue.gain, now + cue.delay + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + cue.delay + cue.duration);
+    oscillator.connect(gain).connect(output);
+    oscillator.start(now + cue.delay);
+    oscillator.stop(now + cue.delay + cue.duration + 0.04);
   });
+}
+
+function getAudioOutput() {
+  if (audioOutput) return audioOutput;
+
+  const compressor = audioContext.createDynamicsCompressor();
+  compressor.threshold.value = -20;
+  compressor.knee.value = 18;
+  compressor.ratio.value = 6;
+  compressor.attack.value = 0.003;
+  compressor.release.value = 0.18;
+
+  const master = audioContext.createGain();
+  master.gain.value = 1;
+
+  compressor.connect(master).connect(audioContext.destination);
+  audioOutput = compressor;
+  return audioOutput;
 }
 
 async function requestWakeLock() {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "workout-timer-v12";
+const CACHE_NAME = "workout-timer-v13";
 const ASSETS = ["index.html", "styles.css", "app.js", "manifest.webmanifest", "icon.svg"];
 
 self.addEventListener("install", (event) => {
