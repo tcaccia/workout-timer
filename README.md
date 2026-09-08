@@ -46,7 +46,7 @@ python -m http.server 5173
 Then open:
 
 ```text
-http://localhost:5173/index.html?v=13
+http://localhost:5173/index.html?v=14
 ```
 
 ## Android Distribution

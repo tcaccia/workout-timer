@@ -111,16 +111,25 @@ h2 {
 }
 
 .icon-button {
-  width: 48px;
-  height: 48px;
+  width: 64px;
+  height: 64px;
   border: 1px solid var(--line);
   background: var(--panel-soft);
   color: var(--text);
   cursor: pointer;
+  font-size: 1.6rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .icon-button[aria-pressed="false"] {
   color: var(--muted);
+}
+
+.about-active .phase-strip,
+.about-active .dial,
+.about-active .controls {
+  display: none;
 }
 
 .mode-tabs {

@@ -864,6 +864,7 @@ function setMode(mode) {
   elements.workoutSettings.classList.toggle("hidden", mode !== "workout");
   elements.savedSettings.classList.toggle("hidden", mode !== "saved");
   elements.aboutSettings.classList.toggle("hidden", mode !== "about");
+  document.body.classList.toggle("about-active", mode === "about");
   workoutPlanDirty = true;
   resetTimer();
 }
